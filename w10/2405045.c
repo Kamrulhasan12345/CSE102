@@ -101,6 +101,8 @@ remove_stop_words_all ()
         strcpy (tokens_except_stop_words[k++], tokens[i]);
       else
         {
+          if (i<=document_tokens_idx[0]) l=-1;
+          else 
           for (l = 0; l < docs_count; l++)
             {
               if (i > document_tokens_idx[l])
@@ -187,7 +189,7 @@ compute_tfidf_all (char word[])
   for (int i = 0; i < docs_count; i++)
     {
       double tf = compute_tf (word, i);
-      printf ("Document %d: %.4f", i + 1, tf * idf);
+      printf ("Document %d: %.4f\n", i + 1, tf * idf);
     }
 }
 
@@ -274,7 +276,7 @@ main ()
             ;
           for (int i = 0; i < docs_count; i++)
             {
-              printf ("Document %d: %.4f", i + 1, compute_tf (word, i));
+              printf ("Document %d: %.4f\n", i + 1, compute_tf (word, i));
             }
         }
       else if (!strcmp ("idf", cmd))
@@ -289,7 +291,7 @@ main ()
               else
                 break;
             }
-          printf ("IDF for '%s': %.4f", word, compute_idf (word));
+          printf ("IDF for '%s': %.4f\n", word, compute_idf (word));
         }
       else if (!strcmp ("tfidf", cmd))
         {
