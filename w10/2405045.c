@@ -31,14 +31,18 @@ normalize_case_all ()
   if (docs_count == 0)
     printf ("No documents set. Use 'set' command first.\n");
   else
-    for (int i = 0; i < MAX_DOCS; i++)
-      {
-        if (documents[i][0] == 0)
-          break;
-        for (int j = 0; j < MAX_LEN; j++)
-          documents[i][j] = tolower (documents[i][j]);
-        printf ("Document %d: %s\n", i + 1, documents[i]);
-      }
+    {
+      printf ("Normalized Documents: \n");
+      for (int i = 0; i < MAX_DOCS; i++)
+        {
+          if (documents[i][0] == 0)
+            break;
+          for (int j = 0; j < MAX_LEN; j++)
+            documents[i][j] = tolower (documents[i][j]);
+          printf ("Document %d: %s\n", i + 1, documents[i]);
+        }
+    }
+  printf ("Documents normalized.\n");
 }
 
 void
@@ -72,8 +76,10 @@ tokenize_all ()
         break;
     }
   token_count = k;
+  printf ("Tokens: \n");
   for (i = 0; i < token_count; i++)
     printf ("%d. %s\n", i + 1, tokens[i]);
+  printf ("Tokenization complete. Total tokens: %d\n", token_count);
 }
 
 void
@@ -93,10 +99,12 @@ remove_stop_words_all ()
       tokens[i][0] = 0;
     }
   token_count = k;
+  printf ("Tokens after stop-word removal: \n");
   for (i = 0; i < token_count; i++)
     strcpy (tokens[i], tokens_except_stop_words[i]),
         tokens_doc_id[i] = tokens_except_stop_words_doc_id[i],
         printf ("%d. %s\n", i + 1, tokens[i]);
+  printf ("Stop-word removal complete. Tokens remaining: %d\n", token_count);
 }
 
 void
@@ -123,8 +131,11 @@ stem_all_tokens ()
             }
         }
       strncpy (stemmed_tokens[i], tokens[i], MAX_TOKEN_LEN);
-      printf ("%d. %s\n", i + 1, tokens[i]);
     }
+  printf ("Stemmed Tokens: \n");
+  for (int i = 0; i < token_count; i++)
+    printf ("%d. %s\n", i + 1, tokens[i]);
+  printf ("Stemming complete. Total stemmed tokens: %d\n", token_count);
 }
 
 double
@@ -136,7 +147,7 @@ compute_tf (char word[], int doc_id)
     ;
   for (; tokens_doc_id[i] == doc_id && i < token_count; n++, i++)
     {
-      if (!strncmp (tokens[i], word, strlen (word)))
+      if (!strncmp (tokens[i], word, MAX_TOKEN_LEN))
         m++;
     }
   tf = 1. * m / n;
@@ -149,10 +160,10 @@ compute_idf (char word[])
   int i, j = 0, m = 0;
   for (i = 0; i < token_count; i++)
     {
-      if (!strncmp (word, tokens[i], strlen (word)))
+      if (!strncmp (word, tokens[i], MAX_TOKEN_LEN))
         {
-          m++;
-          for (; tokens_doc_id[i] != ++j && j < docs_count && i < token_count;
+          m++, j++;
+          for (; tokens_doc_id[i] != j && j < docs_count && i < token_count;
                i++)
             ;
         }
@@ -176,6 +187,20 @@ compute_tfidf_all (char word[])
 void
 help ()
 {
+  printf (
+      "set         - Prompt for the number of documents and their text.\n");
+  printf ("preprocess  - Apply normalization, tokenization, stop-words "
+          "removal, and stemming orderly.\n");
+  printf ("tf          - Compute and display Term Frequency for a specified "
+          "word across documents.\n");
+  printf ("idf         - Compute and display Inverse Document Frequency for a "
+          "specified word.\n");
+  printf ("tfidf       - Compute and display TF-IDF scores for a specified "
+          "word across documents.\n");
+  printf ("stat        - Display TF, IDF, and TF-IDF for all tokens across "
+          "all documents in a matrix format.\n");
+  printf ("help        - Print the list of all available commands.\n");
+  printf ("exit        - Exit the program.\n");
 }
 
 int
@@ -188,6 +213,7 @@ void
 display_stat ()
 {
   char sorted_tokens[token_count][MAX_TOKEN_LEN];
+  int token_indiv_count = 0;
   for (int i = 0; i < token_count; i++)
     strncpy (sorted_tokens[i], tokens[i], MAX_TOKEN_LEN);
   for (int i = 0; i < token_count - 1; i++)
@@ -198,14 +224,17 @@ display_stat ()
             sorted_tokens[j][0] = 0;
         }
     }
+  for (int i = 0; i < token_count; i++)
+    if (!strcmp (tokens[i], "thi"))
+      token_indiv_count++;
+  printf ("thi is %d times.\n", token_indiv_count);
   qsort ((void *)sorted_tokens, token_count, MAX_TOKEN_LEN * sizeof (char),
          cmp_lexico);
 
   printf ("============== TF ================\n");
-  // printf ("                            doc1\tdoc2\tdoc3\tdoc4\tdoc5\n");
   printf ("%-50s", "");
   for (int i = 0; i < docs_count; i++)
-    printf ("%3s%-3d", "doc", i + 1);
+    printf ("%9s%d", "doc", i + 1);
   printf ("\n");
   for (int i = 0; i < token_count; i++)
     {
@@ -215,6 +244,35 @@ display_stat ()
       for (int j = 0; j < docs_count; j++)
         {
           printf ("%10.4f", compute_tf (sorted_tokens[i], j));
+        }
+      printf ("\n");
+    }
+  printf ("\n================ IDF ================\n");
+  printf ("%-50s", "");
+  printf ("%6s", "IDF");
+  printf ("\n");
+  for (int i = 0; i < token_count; i++)
+    {
+      if (sorted_tokens[i][0] == 0)
+        continue;
+      printf ("%-50s", sorted_tokens[i]);
+      printf ("%6.4f", compute_idf (sorted_tokens[i]));
+      printf ("\n");
+    }
+  printf ("\n============== TF-IDF ================\n");
+  printf ("%-50s", "");
+  for (int i = 0; i < docs_count; i++)
+    printf ("%9s%d", "doc", i + 1);
+  printf ("\n");
+  for (int i = 0; i < token_count; i++)
+    {
+      if (sorted_tokens[i][0] == 0)
+        continue;
+      printf ("%-50s", sorted_tokens[i]);
+      double idf = compute_idf (sorted_tokens[i]);
+      for (int j = 0; j < docs_count; j++)
+        {
+          printf ("%10.4f", compute_tf (sorted_tokens[i], j) * idf);
         }
       printf ("\n");
     }
@@ -228,6 +286,8 @@ main ()
 
   char cmd[21], doc_str[MAX_LEN + 2], word[MAX_TOKEN_LEN];
 
+  printf ("Welcome to the Document Processing System!\n");
+  help ();
   for (;;)
     {
       printf ("Enter command: ");
@@ -268,14 +328,13 @@ main ()
           else
             printf ("No valid documents were given.\n");
         }
-      else if (!strcmp ("normalize", cmd))
-        normalize_case_all ();
-      else if (!strcmp ("tokenize", cmd))
-        tokenize_all ();
-      else if (!strcmp ("remove_stop", cmd))
-        remove_stop_words_all ();
-      else if (!strcmp ("stem", cmd))
-        stem_all_tokens ();
+      else if (!strcmp ("preprocess", cmd))
+        {
+          normalize_case_all ();
+          tokenize_all ();
+          remove_stop_words_all ();
+          stem_all_tokens ();
+        }
       else if (!strcmp ("tf", cmd))
         {
           while (1)
@@ -329,7 +388,7 @@ main ()
       else if (!strcmp ("stat", cmd))
         display_stat ();
       else if (!strcmp ("exit", cmd))
-        exit (0);
+        printf ("Exiting program.\n"), exit (0);
       else
         printf ("Unknown command. Type 'help' for list of commands.\n");
     }
