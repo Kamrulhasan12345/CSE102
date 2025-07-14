@@ -157,15 +157,16 @@ compute_tf (char word[], int doc_id)
 double
 compute_idf (char word[])
 {
-  int i, j = 0, m = 0;
+  int i, j = tokens_doc_id[0], m = 0;
   for (i = 0; i < token_count; i++)
     {
-      if (!strncmp (word, tokens[i], MAX_TOKEN_LEN))
+      if (!strcmp (word, tokens[i]))
         {
-          m++, j++;
-          for (; tokens_doc_id[i] != j && j < docs_count && i < token_count;
+          m++;
+          for (; tokens_doc_id[i] == j && j < docs_count && i < token_count;
                i++)
             ;
+          j = tokens_doc_id[i];
         }
     }
   double idf = log10 (1. * MAX_DOCS / (1 + m));
@@ -212,8 +213,12 @@ cmp_lexico (const void *a, const void *b)
 void
 display_stat ()
 {
+  if (docs_count == 0)
+    printf ("No documents set. Use ‘set’ command first.");
+  if (token_count == 0 && docs_count != 0)
+    printf ("Documents set successfully. Please, enter ‘preprocess’ command "
+            "now. It will not take other commands.\n");
   char sorted_tokens[token_count][MAX_TOKEN_LEN];
-  int token_indiv_count = 0;
   for (int i = 0; i < token_count; i++)
     strncpy (sorted_tokens[i], tokens[i], MAX_TOKEN_LEN);
   for (int i = 0; i < token_count - 1; i++)
@@ -224,10 +229,6 @@ display_stat ()
             sorted_tokens[j][0] = 0;
         }
     }
-  for (int i = 0; i < token_count; i++)
-    if (!strcmp (tokens[i], "thi"))
-      token_indiv_count++;
-  printf ("thi is %d times.\n", token_indiv_count);
   qsort ((void *)sorted_tokens, token_count, MAX_TOKEN_LEN * sizeof (char),
          cmp_lexico);
 
@@ -324,7 +325,8 @@ main ()
                 }
             }
           if (i > 0)
-            printf ("Documents set successfully\n");
+            printf ("Documents set successfully. Please, enter `preprocess' "
+                    "command now. It will not take other commands.\n");
           else
             printf ("No valid documents were given.\n");
         }
