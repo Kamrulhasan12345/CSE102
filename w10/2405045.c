@@ -20,8 +20,8 @@ char stop_words[NUM_STOP_WORDS][MAX_TOKEN_LEN]
     = { "the", "is", "a", "an", "and", "in", "of", "to" };
 char suffixes[3][4] = { "ing", "ed", "s" };
 
-int documents_count[MAX_DOCS];
-int document_tokens_idx[MAX_DOCS];
+int tokens_doc_id[MAX_TOKENS];
+int tokens_except_stop_words_doc_id[MAX_TOKENS];
 
 int token_count, docs_count;
 
@@ -44,8 +44,6 @@ normalize_case_all ()
 void
 tokenize_all ()
 {
-  for (int i = 0; i < MAX_DOCS; i++)
-    document_tokens_idx[i] = -1;
   for (int i = 0; i < MAX_TOKENS; i++)
     tokens[i][0] = 0;
 
@@ -62,28 +60,20 @@ tokenize_all ()
           if (isalnum (documents[i][j]))
             {
               if ((j != 0 && !w) || l >= MAX_TOKEN_LEN - 1)
-                tokens[k][l] = 0, k++, l = 0;
+                tokens[k][l] = 0, k++, l = 0, tokens_doc_id[k - 1] = i;
               tokens[k][l++] = documents[i][j];
               w = 1;
             }
           else
             w = 0;
         }
-      k++, l = 0;
-      if (i == 0)
-        documents_count[i] = k;
-      else
-        documents_count[i] = k - document_tokens_idx[i - 1] - 1;
-      document_tokens_idx[i] = k - 1;
+      k++, l = 0, tokens_doc_id[k - 1] = i;
       if (k == MAX_TOKENS)
         break;
     }
   token_count = k;
   for (i = 0; i < token_count; i++)
     printf ("%d. %s\n", i + 1, tokens[i]);
-  for (i = 0; i < docs_count; i++)
-    printf ("Document %d: %d %d\n", i + 1, documents_count[i],
-            document_tokens_idx[i]);
 }
 
 void
@@ -98,29 +88,15 @@ remove_stop_words_all ()
         if (!strcmp (tokens[i], stop_words[j]))
           break;
       if (j >= NUM_STOP_WORDS)
+        tokens_except_stop_words_doc_id[k] = tokens_doc_id[i],
         strcpy (tokens_except_stop_words[k++], tokens[i]);
-      else
-        {
-          if (i<=document_tokens_idx[0]) l=-1;
-          else 
-          for (l = 0; l < docs_count; l++)
-            {
-              if (i > document_tokens_idx[l])
-                break;
-            }
-          documents_count[l + 1]--;
-          for (m = l + 1; m < MAX_DOCS; m++)
-            document_tokens_idx[m]--;
-        }
       tokens[i][0] = 0;
     }
   token_count = k;
   for (i = 0; i < token_count; i++)
     strcpy (tokens[i], tokens_except_stop_words[i]),
+        tokens_doc_id[i] = tokens_except_stop_words_doc_id[i],
         printf ("%d. %s\n", i + 1, tokens[i]);
-  for (i = 0; i < docs_count; i++)
-    printf ("Document %d: %d %d\n", i + 1, documents_count[i],
-            document_tokens_idx[i]);
 }
 
 void
@@ -154,37 +130,41 @@ stem_all_tokens ()
 double
 compute_tf (char word[], int doc_id)
 {
-  int i, n = 0;
+  int i, n = 0, m = 0;
   double tf;
-  if (doc_id == 0)
-    i = 0;
-  else
-    i = document_tokens_idx[doc_id - 1];
-  for (; i <= document_tokens_idx[doc_id]; i++)
+  for (i = 0; tokens_doc_id[i] != doc_id; i++)
+    ;
+  for (; tokens_doc_id[i] == doc_id && i < token_count; n++, i++)
     {
-      if (!strncmp (stemmed_tokens[i], word, strlen (word)))
-        n++;
+      if (!strncmp (tokens[i], word, strlen (word)))
+        m++;
     }
-  tf = 1. * n / documents_count[doc_id];
+  tf = 1. * m / n;
   return tf;
 }
 
 double
 compute_idf (char word[])
 {
-  int i, j = 0, n = 0;
+  int i, j = 0, m = 0;
   for (i = 0; i < token_count; i++)
     {
       if (!strncmp (word, tokens[i], strlen (word)))
-        n++, i = document_tokens_idx[++j] + 1;
+        {
+          m++;
+          for (; tokens_doc_id[i] != ++j && j < docs_count && i < token_count;
+               i++)
+            ;
+        }
     }
-  double idf = log10 (1. * MAX_DOCS / (1 + n));
+  double idf = log10 (1. * MAX_DOCS / (1 + m));
   return idf;
 }
 
 void
 compute_tfidf_all (char word[])
 {
+  printf ("TF-IDF for '%s': \n", word);
   double idf = compute_idf (word);
   for (int i = 0; i < docs_count; i++)
     {
@@ -198,9 +178,46 @@ help ()
 {
 }
 
+int
+cmp_lexico (const void *a, const void *b)
+{
+  return strcmp ((char *)a, (char *)b);
+}
+
 void
 display_stat ()
 {
+  char sorted_tokens[token_count][MAX_TOKEN_LEN];
+  for (int i = 0; i < token_count; i++)
+    strncpy (sorted_tokens[i], tokens[i], MAX_TOKEN_LEN);
+  for (int i = 0; i < token_count - 1; i++)
+    {
+      for (int j = i + 1; j < token_count; j++)
+        {
+          if (!strcmp (sorted_tokens[i], sorted_tokens[j]))
+            sorted_tokens[j][0] = 0;
+        }
+    }
+  qsort ((void *)sorted_tokens, token_count, MAX_TOKEN_LEN * sizeof (char),
+         cmp_lexico);
+
+  printf ("============== TF ================\n");
+  // printf ("                            doc1\tdoc2\tdoc3\tdoc4\tdoc5\n");
+  printf ("%-50s", "");
+  for (int i = 0; i < docs_count; i++)
+    printf ("%3s%-3d", "doc", i + 1);
+  printf ("\n");
+  for (int i = 0; i < token_count; i++)
+    {
+      if (sorted_tokens[i][0] == 0)
+        continue;
+      printf ("%-50s", sorted_tokens[i]);
+      for (int j = 0; j < docs_count; j++)
+        {
+          printf ("%10.4f", compute_tf (sorted_tokens[i], j));
+        }
+      printf ("\n");
+    }
 }
 
 int
@@ -283,7 +300,7 @@ main ()
         {
           while (1)
             {
-              printf ("Enter word to compute TF: ");
+              printf ("Enter word to compute IDF: ");
               fgets (word, MAX_TOKEN_LEN, stdin);
               word[strlen (word) - 1] = 0;
               if (!word[0])
@@ -297,7 +314,7 @@ main ()
         {
           while (1)
             {
-              printf ("Enter word to compute TF: ");
+              printf ("Enter word to compute TF-IDF: ");
               fgets (word, MAX_TOKEN_LEN, stdin);
               word[strlen (word) - 1] = 0;
               if (!word[0])
