@@ -87,7 +87,7 @@ remove_stop_words_all ()
 {
   if (token_count == 0)
     printf ("No tokens available. Use 'tokenize' command first.\n");
-  int i, j, k = 0, l, m;
+  int i, j, k = 0;
   for (i = 0; i < token_count; i++)
     {
       for (j = 0; j < NUM_STOP_WORDS; j++)
@@ -121,9 +121,8 @@ stem_all_tokens ()
       d = 0;
       for (j = 0; !d && j < 3; j++)
         {
-          char *p = tokens[i];
-          size_t len = strlen (tokens[i]);
-          size_t slen = strlen (suffixes[j]);
+          int len = strlen (tokens[i]);
+          int slen = strlen (suffixes[j]);
           if (len >= slen && strcmp (tokens[i] + len - slen, suffixes[j]) == 0)
             {
               tokens[i][len - slen] = '\0';
